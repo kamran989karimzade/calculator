@@ -1,6 +1,6 @@
 {
   "name": "Calculator – Modern",
-  "short_name": "Calc",
+  "short_name": "Calculator",
   "description": "A modern glassmorphism calculator",
   "start_url": "/calculator/",
   "display": "standalone",
