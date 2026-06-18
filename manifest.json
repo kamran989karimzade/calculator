@@ -2,7 +2,7 @@
   "name": "Calculator – Modern",
   "short_name": "Calc",
   "description": "A modern glassmorphism calculator",
-  "start_url": "/",
+  "start_url": "/calculator/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#080810",
