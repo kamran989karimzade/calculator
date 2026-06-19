@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no,viewport-fit=cover"/>
+<meta name="theme-color" content="#000"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<link rel="manifest" href="manifest.json"/>
+<title>Calculator</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;user-select:none;}
+:root{
+  --bg:#000;--disp-bg:#000;
+  --btn-num:#333333;--btn-num-h:#4d4d4d;
+  --btn-op:#FF9F0A;--btn-op-h:#ffb340;
+  --btn-fn:#a5a5a5;--btn-fn-h:#d4d4d4;
+  --btn-sci:#1c1c1e;--btn-sci-h:#2c2c2e;
+  --btn-sci-c:#fff;--btn-sci-accent:#FF9F0A;
+  --text:#fff;--text-sub:rgba(255,255,255,0.5);
+  --acc:#FF9F0A;--acc2:#ff6b35;
+  --radius:50%;--radius-sci:14px;
+  --shadow:0 4px 20px rgba(0,0,0,0.5);
+}
+html,body{height:100%;width:100%;overflow:hidden;background:#000;}
+body{font-family:'Inter',system-ui,sans-serif;display:flex;align-items:flex-end;justify-content:center;min-height:100dvh;}
+.app{width:100%;max-width:430px;min-height:100dvh;display:flex;flex-direction:column;background:#000;padding-bottom:env(safe-area-inset-bottom,0);}
+
+/* DISPLAY */
+.disp{flex:1;display:flex;flex-direction:column;justify-content:flex-end;padding:0 24px 10px;min-height:200px;position:relative;}
+.mini-hist{font-size:22px;color:var(--text-sub);text-align:right;min-height:28px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:all .3s;}
+.expr-disp{font-size:16px;color:rgba(255,255,255,0.4);text-align:right;min-height:22px;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.live-res{font-size:16px;color:var(--acc);text-align:right;min-height:22px;margin-bottom:2px;transition:opacity .2s;}
+.main-num{font-size:clamp(48px,13vw,80px);font-weight:300;color:#fff;text-align:right;line-height:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transition:font-size .15s ease;}
+.main-num.sz2{font-size:clamp(36px,10vw,60px);}
+.main-num.sz3{font-size:clamp(26px,7vw,42px);}
+.cursor{display:inline-block;width:2px;height:.8em;background:var(--acc);margin-left:2px;vertical-align:middle;border-radius:2px;animation:blink 1s step-end infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+@keyframes numFlash{0%{color:var(--acc)}100%{color:#fff}}
+.flash{animation:numFlash .4s ease forwards;}
+
+/* MODE POPUP */
+.mode-popup-wrap{position:relative;display:flex;justify-content:flex-start;padding:0 0 8px 20px;}
+.mode-btn{width:44px;height:44px;border-radius:50%;background:var(--btn-fn);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s;}
+.mode-btn:active{background:var(--btn-fn-h);}
+.mode-btn svg{width:22px;height:22px;fill:#000;}
+.popup{position:absolute;bottom:52px;left:10px;background:#1c1c1e;border-radius:14px;padding:6px 0;min-width:160px;z-index:100;box-shadow:0 8px 40px rgba(0,0,0,0.8);transform-origin:bottom left;transform:scale(0);opacity:0;transition:transform .2s cubic-bezier(.34,1.56,.64,1),opacity .15s;}
+.popup.open{transform:scale(1);opacity:1;}
+.popup-item{padding:13px 18px;font-size:15px;font-weight:500;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:12px;border-radius:0;}
+.popup-item:active{background:rgba(255,255,255,0.1);}
+.popup-item.active{color:var(--acc);}
+.popup-item .pi-check{color:var(--acc);font-size:16px;}
+.popup-sep{height:1px;background:rgba(255,255,255,0.1);margin:2px 0;}
+
+/* KEYPAD */
+.kpad{padding:8px 12px 8px;display:flex;flex-direction:column;gap:10px;}
+
+/* BASIC GRID */
+.basic-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+.b{aspect-ratio:1;border:none;border-radius:50%;font-family:inherit;font-size:clamp(18px,5vw,32px);font-weight:400;cursor:pointer;transition:transform .08s,filter .08s;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;}
+.b:active{transform:scale(.92);filter:brightness(1.3);}
+.b-num{background:var(--btn-num);color:#fff;}
+.b-op{background:var(--acc);color:#fff;font-size:clamp(20px,5.5vw,36px);}
+.b-op.active-op{background:#fff;color:var(--acc);}
+.b-fn{background:var(--btn-fn);color:#000;font-size:clamp(16px,4.5vw,24px);font-weight:500;}
+.b-zero{aspect-ratio:unset;border-radius:40px;grid-column:span 2;justify-content:flex-start;padding-left:calc(22% + 4px);}
+.ripple{position:absolute;border-radius:50%;background:rgba(255,255,255,0.2);transform:scale(0);animation:rpl .35s linear;pointer-events:none;}
+@keyframes rpl{to{transform:scale(4);opacity:0}}
+
+/* SCIENTIFIC GRID */
+.sci-wrap{display:none;flex-direction:column;gap:8px;}
+.sci-wrap.on{display:flex;}
+.sci-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;}
+.sci-grid2{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;}
+.sb{height:clamp(42px,11vw,58px);border:none;border-radius:var(--radius-sci);font-family:inherit;font-size:clamp(10px,2.8vw,14px);font-weight:500;cursor:pointer;transition:transform .08s,background .1s;background:var(--btn-sci);color:var(--btn-sci-c);display:flex;align-items:center;justify-content:center;text-align:center;line-height:1.2;padding:2px 4px;}
+.sb:active{transform:scale(.92);background:var(--btn-sci-h);}
+.sb.accent{color:var(--acc);}
+.sb.op-style{background:var(--acc);color:#fff;}
+.sb.fn-style{background:var(--btn-fn);color:#000;}
+.sb.active-mem{color:var(--acc);border:1px solid var(--acc);}
+/* bottom 4 rows same as basic */
+.sci-basic{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+
+/* HISTORY TAB */
+.htab{display:none;flex:1;flex-direction:column;overflow:hidden;}
+.htab.on{display:flex;}
+.hhdr{display:flex;justify-content:space-between;align-items:center;padding:16px 20px 10px;}
+.htitle{font-size:17px;font-weight:700;color:#fff;}
+.hclr{background:none;border:none;color:var(--acc);font-family:inherit;font-size:14px;cursor:pointer;}
+.hscroll{flex:1;overflow-y:auto;padding:0 16px 20px;}
+.hdate{font-size:12px;color:var(--text-sub);margin:14px 0 7px;font-weight:500;}
+.hentry{background:#1c1c1e;border-radius:14px;padding:12px 16px;margin-bottom:8px;text-align:right;cursor:pointer;}
+.hentry:active{background:#2c2c2e;}
+.heq{font-size:13px;color:var(--text-sub);margin-bottom:4px;}
+.hres{font-size:20px;font-weight:500;color:#fff;}
+.hempty{text-align:center;color:var(--text-sub);padding:40px;}
+
+/* CONVERTER */
+.ctab{display:none;flex:1;flex-direction:column;overflow:hidden;}
+.ctab.on{display:flex;}
+.cgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:#1c1c1e;border-radius:16px;overflow:hidden;margin:14px;}
+.ccard{background:#000;padding:18px 10px;display:flex;flex-direction:column;align-items:center;gap:8px;cursor:pointer;transition:background .15s;}
+.ccard:active{background:#1c1c1e;}
+.ccard-icon{font-size:28px;}
+.ccard-name{font-size:11px;color:var(--text-sub);font-weight:500;text-align:center;}
+/* conv detail */
+.cdet{display:none;flex-direction:column;flex:1;overflow:hidden;}
+.cdet.on{display:flex;}
+.cdet-hdr{display:flex;align-items:center;padding:16px 16px 8px;gap:10px;}
+.cback{background:none;border:none;color:var(--acc);font-family:inherit;font-size:16px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:4px;}
+.cdet-title{font-size:18px;font-weight:700;color:#fff;}
+.unit-rows{flex:1;overflow-y:auto;}
+.unit-row{display:flex;justify-content:space-between;align-items:center;padding:20px 20px;border-bottom:1px solid #1c1c1e;}
+.unit-row.active-row .uname{color:var(--acc);}
+.uname{font-size:16px;color:#fff;font-weight:400;display:flex;align-items:center;gap:6px;cursor:pointer;}
+.uchevron{color:var(--text-sub);font-size:12px;}
+.uval{font-size:26px;font-weight:300;color:#fff;}
+.unit-row.active-row .uval{color:var(--acc);}
+.cnpad{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:10px 12px 12px;}
+.cb{height:58px;border-radius:14px;border:none;font-family:inherit;font-size:19px;font-weight:400;cursor:pointer;transition:transform .08s;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;}
+.cb:active{transform:scale(.92);}
+.cb-n{background:#333;color:#fff;}
+.cb-f{background:var(--btn-fn);color:#000;font-weight:600;}
+.cb-bk{background:#1c1c1e;color:var(--acc);font-size:22px;}
+.cb-z2{grid-column:span 2;border-radius:29px;justify-content:flex-start;padding-left:24px;}
+/* Sheet */
+.usheet{position:fixed;inset:0;z-index:200;display:none;flex-direction:column;justify-content:flex-end;}
+.usheet.on{display:flex;}
+.sheet-bg{position:absolute;inset:0;background:rgba(0,0,0,0.7);}
+.sheet-body{position:relative;background:#1c1c1e;border-radius:22px 22px 0 0;max-height:65vh;overflow-y:auto;padding-bottom:24px;}
+.sheet-hdr{padding:14px 20px;font-size:16px;font-weight:700;color:#fff;border-bottom:1px solid rgba(255,255,255,0.1);position:sticky;top:0;background:#1c1c1e;}
+.sheet-item{padding:15px 20px;font-size:15px;color:#fff;cursor:pointer;display:flex;justify-content:space-between;align-items:center;}
+.sheet-item:active{background:rgba(255,255,255,0.07);}
+.sheet-item.sel{color:var(--acc);}
+/* Form converters */
+.form-body{flex:1;overflow-y:auto;padding:0 16px 16px;}
+.f-field{margin-bottom:16px;}
+.f-label{font-size:13px;color:var(--text-sub);margin-bottom:6px;font-weight:500;}
+.f-val{font-size:30px;font-weight:300;color:#fff;padding:8px 0 10px;border-bottom:1px solid #333;cursor:pointer;}
+.f-val.active{color:var(--acc);border-bottom-color:var(--acc);}
+.f-toggle-row{display:flex;gap:8px;margin-bottom:14px;}
+.f-toggle{flex:1;height:42px;border-radius:10px;border:none;background:#1c1c1e;color:var(--text-sub);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;}
+.f-toggle.on{background:#2c2c2e;color:var(--acc);}
+.gender-row{display:flex;gap:10px;}
+.gBtn{width:52px;height:52px;border-radius:12px;border:none;background:#1c1c1e;font-size:26px;cursor:pointer;}
+.gBtn.on{background:#2c2c2e;outline:2px solid var(--acc);}
+.res-card{background:#1c1c1e;border-radius:16px;padding:18px;text-align:center;margin-bottom:16px;}
+.res-lbl{font-size:13px;color:var(--text-sub);margin-bottom:6px;}
+.res-val{font-size:32px;font-weight:300;color:var(--acc);}
+.res-cat{font-size:13px;color:var(--text-sub);margin-top:4px;}
+.calc-cta{width:100%;height:50px;border-radius:14px;border:none;background:var(--acc);color:#fff;font-family:inherit;font-size:16px;font-weight:700;cursor:pointer;margin-top:4px;}
+.date-row{display:flex;justify-content:space-between;align-items:center;padding:18px 0;border-bottom:1px solid #1c1c1e;}
+.date-lbl{font-size:16px;color:#fff;}
+.date-input{background:none;border:none;color:var(--acc);font-family:inherit;font-size:16px;font-weight:500;outline:none;color-scheme:dark;}
+.diff-card{background:#1c1c1e;border-radius:18px;padding:20px;margin-top:16px;}
+.diff-ttl{font-size:14px;color:var(--acc);font-weight:700;text-align:center;padding-bottom:14px;border-bottom:1px solid #333;margin-bottom:14px;}
+.diff-nums{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;}
+.diff-n{text-align:center;}
+.diff-nv{font-size:28px;font-weight:300;color:#fff;}
+.diff-nl{font-size:11px;color:var(--text-sub);}
+.diff-dates{display:grid;grid-template-columns:1fr 1fr;padding-top:12px;border-top:1px solid #333;gap:10px;}
+.diff-dt{text-align:center;}
+.diff-dt-t{font-size:12px;color:var(--acc);font-weight:600;margin-bottom:3px;}
+.diff-dt-v{font-size:13px;color:#fff;}
+.disc-pct-row{display:flex;flex-wrap:wrap;gap:7px;margin:12px 0;}
+.disc-chip{padding:7px 14px;border-radius:20px;background:#1c1c1e;color:var(--text-sub);font-size:13px;font-weight:500;cursor:pointer;border:none;font-family:inherit;}
+.disc-chip.on{background:#2c2c2e;color:var(--acc);outline:1px solid var(--acc);}
+/* TABS */
+.tabs{display:flex;background:#000;border-top:1px solid #1c1c1e;padding:6px 10px env(safe-area-inset-bottom,0);}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px;border:none;background:none;cursor:pointer;color:var(--text-sub);font-size:10px;font-family:inherit;}
+.tab.active{color:var(--acc);}
+.tab svg{width:22px;height:22px;}
+/* Install */
+.ibanner{position:fixed;bottom:0;left:0;right:0;background:rgba(0,0,0,0.95);backdrop-filter:blur(20px);border-top:1px solid #333;padding:12px 16px;display:flex;align-items:center;gap:10px;z-index:300;transform:translateY(100%);transition:transform .4s cubic-bezier(.34,1.56,.64,1);}
+.ibanner.on{transform:translateY(0);}
+.iico{width:38px;height:38px;border-radius:10px;background:var(--acc);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+.itxt{flex:1;}
+.ititle{font-size:13px;font-weight:700;color:#fff;}
+.isub{font-size:11px;color:var(--text-sub);}
+.ibtn{background:var(--acc);border:none;color:#fff;padding:8px 14px;border-radius:9px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0;}
+.ix{background:none;border:none;color:var(--text-sub);font-size:20px;cursor:pointer;}
+sup{font-size:.6em;vertical-align:super;}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- ── CALCULATOR PAGE ── -->
+<div id="pg-calc" style="display:flex;flex-direction:column;flex:1;">
+  <div class="disp">
+    <div class="mini-hist" id="mh"></div>
+    <div class="expr-disp" id="el"></div>
+    <div class="live-res" id="lr"></div>
+    <div class="main-num" id="mn">0<span class="cursor"></span></div>
+  </div>
+
+  <!-- Mode popup -->
+  <div class="mode-popup-wrap">
+    <button class="mode-btn" id="modeBtn" onclick="togglePopup()">
+      <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/><rect x="1" y="4" width="22" height="16" rx="3" fill="none" stroke="#000" stroke-width="2"/></svg>
+    </button>
+    <div class="popup" id="popup">
+      <div class="popup-item active" id="pi-basic" onclick="setMode('basic')">Basic <span class="pi-check" id="chk-basic">✓</span></div>
+      <div class="popup-sep"></div>
+      <div class="popup-item" id="pi-sci" onclick="setMode('sci')">Scientific <span class="pi-check" id="chk-sci" style="display:none">✓</span></div>
+    </div>
+  </div>
+
+  <div class="kpad">
+    <!-- SCIENTIFIC ROWS -->
+    <div class="sci-wrap" id="sciWrap">
+      <!-- Row sci-1: memory + 2nd -->
+      <div class="sci-grid">
+        <button class="sb" id="btn2nd" onclick="toggle2nd()">(2nd)</button>
+        <button class="sb" onclick="memOp('mc')">mc</button>
+        <button class="sb" onclick="memOp('m+')">m+</button>
+        <button class="sb" onclick="memOp('m-')">m−</button>
+        <button class="sb" onclick="memOp('mr')">mr</button>
+      </div>
+      <!-- Row sci-2: power/root/trig -->
+      <div class="sci-grid">
+        <button class="sb accent" id="sb-x2" onclick="sciOp('pow2')">x²</button>
+        <button class="sb accent" id="sb-x3" onclick="sciOp('pow3')">x³</button>
+        <button class="sb accent" id="sb-xy" onclick="insertOp('^')">x<sup>y</sup></button>
+        <button class="sb accent" id="sb-ex" onclick="sciOp('exp')">e<sup>x</sup></button>
+        <button class="sb accent" id="sb-10x" onclick="sciOp('10x')">10<sup>x</sup></button>
+      </div>
+      <!-- Row sci-3 -->
+      <div class="sci-grid">
+        <button class="sb accent" id="sb-inv" onclick="sciOp('inv')">¹⁄ₓ</button>
+        <button class="sb accent" id="sb-sqrt2" onclick="sciOp('sqrt2')">²√x</button>
+        <button class="sb accent" id="sb-sqrt3" onclick="sciOp('cbrt')">³√x</button>
+        <button class="sb accent" id="sb-sqrty" onclick="insertOp('yroot')">ʸ√x</button>
+        <button class="sb accent" id="sb-ln" onclick="sciOp('ln')">ln</button>
+      </div>
+      <!-- Row sci-4 -->
+      <div class="sci-grid">
+        <button class="sb accent" id="sb-log" onclick="sciOp('log')">log₁₀</button>
+        <button class="sb accent" id="sb-fact" onclick="sciOp('fact')">x!</button>
+        <button class="sb accent" id="sb-sin" onclick="sciOp('sin')">sin</button>
+        <button class="sb accent" id="sb-cos" onclick="sciOp('cos')">cos</button>
+        <button class="sb accent" id="sb-tan" onclick="sciOp('tan')">tan</button>
+      </div>
+      <!-- Row sci-5 -->
+      <div class="sci-grid">
+        <button class="sb" onclick="insertConst('e')">e</button>
+        <button class="sb" onclick="sciOp('EE')">EE</button>
+        <button class="sb" onclick="sciOp('rand')">Rand</button>
+        <button class="sb" onclick="toggleDeg()" id="sbDeg">Deg</button>
+        <button class="sb" onclick="insertConst('π')">π</button>
+      </div>
+      <!-- Sinh row (2nd mode) -->
+      <div class="sci-grid" id="hypRow" style="display:none">
+        <button class="sb accent" onclick="sciOp('sinh')">sinh</button>
+        <button class="sb accent" onclick="sciOp('cosh')">cosh</button>
+        <button class="sb accent" onclick="sciOp('tanh')">tanh</button>
+        <button class="sb accent" onclick="sciOp('asin')">sin⁻¹</button>
+        <button class="sb accent" onclick="sciOp('acos')">cos⁻¹</button>
+      </div>
+      <!-- sci basic row -->
+      <div class="sci-basic">
+        <button class="b b-fn" id="btnC" onclick="pb('C',this)">AC</button>
+        <button class="b b-fn" onclick="pb('±',this)">+/−</button>
+        <button class="b b-fn" onclick="pb('%',this)">%</button>
+        <button class="b b-op" id="op-div" onclick="pb('÷',this)">÷</button>
+      </div>
+    </div>
+
+    <!-- BASIC GRID -->
+    <div class="basic-grid" id="basicGrid">
+      <button class="b b-fn" id="btnC2" onclick="pb('C',this)">AC</button>
+      <button class="b b-fn" onclick="pb('±',this)">+/−</button>
+      <button class="b b-fn" onclick="pb('%',this)">%</button>
+      <button class="b b-op" id="op-div2" onclick="pb('÷',this)">÷</button>
+
+      <button class="b b-num" onclick="pb('7',this)">7</button>
+      <button class="b b-num" onclick="pb('8',this)">8</button>
+      <button class="b b-num" onclick="pb('9',this)">9</button>
+      <button class="b b-op" id="op-mul" onclick="pb('×',this)">×</button>
+
+      <button class="b b-num" onclick="pb('4',this)">4</button>
+      <button class="b b-num" onclick="pb('5',this)">5</button>
+      <button class="b b-num" onclick="pb('6',this)">6</button>
+      <button class="b b-op" id="op-sub" onclick="pb('−',this)">−</button>
+
+      <button class="b b-num" onclick="pb('1',this)">1</button>
+      <button class="b b-num" onclick="pb('2',this)">2</button>
+      <button class="b b-num" onclick="pb('3',this)">3</button>
+      <button class="b b-op" id="op-add" onclick="pb('+',this)">+</button>
+
+      <!-- parens only in sci mode, else hidden -->
+      <button class="b b-fn" id="btn-lp" onclick="pb('(',this)" style="display:none;font-size:22px;">(</button>
+      <button class="b b-fn" id="btn-rp" onclick="pb(')',this)" style="display:none;font-size:22px;">)</button>
+      <button class="b b-num b-zero" id="btn-zero" onclick="pb('0',this)">0</button>
+      <button class="b b-num" onclick="pb('⌫',this)" onpointerdown="startHD()" onpointerup="stopHD()" onpointerleave="stopHD()" style="font-size:22px;">⌫</button>
+      <button class="b b-op" id="op-eq" onclick="pb('=',this)">=</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── HISTORY PAGE ── -->
+<div id="pg-hist" style="display:none;flex:1;flex-direction:column;overflow:hidden;">
+  <div class="hhdr"><div class="htitle">History</div><button class="hclr" onclick="clearHist()">Clear all</button></div>
+  <div class="hscroll" id="hscroll"></div>
+</div>
+
+<!-- ── CONVERTER PAGE ── -->
+<div id="pg-conv" style="display:none;flex:1;flex-direction:column;overflow:hidden;">
+  <div class="cgrid" id="cgrid">
+    <div class="ccard" onclick="openConv('currency')"><div class="ccard-icon">💱</div><div class="ccard-name">Currency</div></div>
+    <div class="ccard" onclick="openConv('length')"><div class="ccard-icon">📏</div><div class="ccard-name">Length</div></div>
+    <div class="ccard" onclick="openConv('mass')"><div class="ccard-icon">⚖️</div><div class="ccard-name">Mass</div></div>
+    <div class="ccard" onclick="openConv('area')"><div class="ccard-icon">⬛</div><div class="ccard-name">Area</div></div>
+    <div class="ccard" onclick="openConv('time')"><div class="ccard-icon">⏱️</div><div class="ccard-name">Time</div></div>
+    <div class="ccard" onclick="openConv('finance')"><div class="ccard-icon">📈</div><div class="ccard-name">Finance</div></div>
+    <div class="ccard" onclick="openConv('data')"><div class="ccard-icon">💾</div><div class="ccard-name">Data</div></div>
+    <div class="ccard" onclick="openConv('date')"><div class="ccard-icon">📅</div><div class="ccard-name">Date</div></div>
+    <div class="ccard" onclick="openConv('discount')"><div class="ccard-icon">🏷️</div><div class="ccard-name">Discount</div></div>
+    <div class="ccard" onclick="openConv('bmi')"><div class="ccard-icon">🏃</div><div class="ccard-name">BMI</div></div>
+    <div class="ccard" onclick="openConv('numeral')"><div class="ccard-icon">🔢</div><div class="ccard-name">Numeral</div></div>
+    <div class="ccard" onclick="openConv('volume')"><div class="ccard-icon">🧊</div><div class="ccard-name">Volume</div></div>
+    <div class="ccard" onclick="openConv('speed')"><div class="ccard-icon">🚀</div><div class="ccard-name">Speed</div></div>
+    <div class="ccard" onclick="openConv('temp')"><div class="ccard-icon">🌡️</div><div class="ccard-name">Temperature</div></div>
+  </div>
+  <div class="cdet" id="cdet">
+    <div class="cdet-hdr">
+      <button class="cback" onclick="closeConv()">‹ Back</button>
+      <div class="cdet-title" id="cdet-title"></div>
+    </div>
+    <div id="cdet-body" style="display:flex;flex-direction:column;flex:1;overflow:hidden;"></div>
+  </div>
+</div>
+
+<!-- TABS -->
+<div class="tabs">
+  <button class="tab active" id="tab0" onclick="showPage(0)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="18" rx="3"/><line x1="8" y1="9" x2="16" y2="9"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="12" y2="17"/></svg>
+    Calc
+  </button>
+  <button class="tab" id="tab1" onclick="showPage(1)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><polyline points="12,7 12,12 15,15"/></svg>
+    History
+  </button>
+  <button class="tab" id="tab2" onclick="showPage(2)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+    Converter
+  </button>
+</div>
+
+<!-- Unit sheet -->
+<div class="usheet" id="usheet">
+  <div class="sheet-bg" onclick="closeSheet()"></div>
+  <div class="sheet-body">
+    <div class="sheet-hdr" id="sheet-hdr">Select unit</div>
+    <div id="sheet-items"></div>
+  </div>
+</div>
+
+</div><!-- /app -->
+
+<div class="ibanner" id="ib">
+  <div class="iico">🧮</div>
+  <div class="itxt"><div class="ititle">Install Calculator</div><div class="isub">Add to home screen</div></div>
+  <button class="ibtn" id="inst">Install</button>
+  <button class="ix" onclick="dimiss()">✕</button>
+</div>
+
+<script>
+// ══ MATH PARSER ══
+function evaluate(expr){
+  if(!expr||!expr.trim())return null;
+  try{
+    let s=expr.replace(/×/g,'*').replace(/÷/g,'/').replace(/−/g,'-')
+              .replace(/π/g,'3.14159265358979').replace(/\be\b/g,'2.71828182845905');
+    const tk=tokenize(s);if(!tk.length)return null;
+    const[r]=pAS(tk,0);
+    return isFinite(r)?parseFloat(r.toPrecision(12)):'Error';
+  }catch(e){return null;}
+}
+function tokenize(s){const t=[];let i=0;while(i<s.length){if(' '===s[i]){i++;continue;}if(/[\d.]/.test(s[i])){let n='';while(i<s.length&&/[\d.]/.test(s[i]))n+=s[i++];t.push({t:'n',v:parseFloat(n)});}else if('+-*/^'.includes(s[i]))t.push({t:'o',v:s[i++]});else if(s[i]==='(')t.push({t:'l'}),i++;else if(s[i]===')')t.push({t:'r'}),i++;else i++;}return t;}
+function pAS(t,p){let[l,p2]=pMD(t,p);while(p2<t.length&&t[p2].t==='o'&&'+-'.includes(t[p2].v)){const o=t[p2].v;p2++;let[r,np]=pMD(t,p2);l=o==='+'?l+r:l-r;p2=np;}return[l,p2];}
+function pMD(t,p){let[l,p2]=pPow(t,p);while(p2<t.length&&t[p2].t==='o'&&'*/'.includes(t[p2].v)){const o=t[p2].v;p2++;let[r,np]=pPow(t,p2);l=o==='*'?l*r:r===0?NaN:l/r;p2=np;}return[l,p2];}
+function pPow(t,p){let[b,p2]=pU(t,p);if(p2<t.length&&t[p2].t==='o'&&t[p2].v==='^'){p2++;let[e,np]=pPow(t,p2);b=Math.pow(b,e);p2=np;}return[b,p2];}
+function pU(t,p){if(p<t.length&&t[p].t==='o'&&t[p].v==='-'){let[v,p2]=pU(t,p+1);return[-v,p2];}if(p<t.length&&t[p].t==='o'&&t[p].v==='+')return pU(t,p+1);return pPrim(t,p);}
+function pPrim(t,p){if(p>=t.length)return[0,p];if(t[p].t==='n')return[t[p].v,p+1];if(t[p].t==='l'){let[v,p2]=pAS(t,p+1);if(p2<t.length&&t[p2].t==='r')p2++;return[v,p2];}return[0,p+1];}
+function fmtN(n){if(n==='Error')return'Error';if(n===null)return'';const v=parseFloat(n);if(isNaN(v))return String(n);if(Math.abs(v)>1e13||(Math.abs(v)<1e-9&&v!==0))return v.toExponential(6);return parseFloat(v.toPrecision(10)).toString();}
+
+// ══ STATE ══
+let ES='',JE=false,useRad=false,is2nd=false,sciMode=false;
+let mem=0,lastOp=null,lastVal=null;
+let hist=JSON.parse(localStorage.getItem('ch5')||'[]');
+let hdT=null,hdI=null,activeOp=null;
+const mnEl=document.getElementById('mn'),elEl=document.getElementById('el'),lrEl=document.getElementById('lr'),mhEl=document.getElementById('mh');
+const btnC=document.getElementById('btnC'),btnC2=document.getElementById('btnC2');
+
+function upd(){
+  elEl.textContent=ES||'';
+  if(ES.length>0){const l=evaluate(ES);if(l!==null&&l!=='Error'&&String(l)!==ES)lrEl.textContent='= '+fmtN(l);else lrEl.textContent='';}else lrEl.textContent='';
+  const d=ES||'0';
+  mnEl.innerHTML=d+'<span class="cursor"></span>';
+  mnEl.classList.remove('sz2','sz3');
+  if(d.length>16)mnEl.classList.add('sz3');else if(d.length>10)mnEl.classList.add('sz2');
+  const isAC=!ES;
+  btnC.textContent=isAC?'AC':'C';
+  btnC2.textContent=isAC?'AC':'C';
+  // highlight active op
+  ['÷','×','−','+','='].forEach(o=>{
+    const id={'÷':'op-div','÷':'op-div','×':'op-mul','−':'op-sub','+':'op-add','=':'op-eq'}[o];
+    // reset
+  });
+}
+
+function pb(v,btn){
+  if(btn)ripple(btn);
+  if(v==='AC'||(v==='C'&&!ES)){
+    ES='';JE=false;activeOp=null;
+    elEl.textContent='';lrEl.textContent='';mhEl.textContent='';
+    mnEl.innerHTML='0<span class="cursor"></span>';
+    mnEl.classList.remove('sz2','sz3','flash');
+    btnC.textContent='AC';btnC2.textContent='AC';return;
+  }
+  if(v==='C'){
+    ES='';JE=false;activeOp=null;
+    elEl.textContent='';lrEl.textContent='';
+    mnEl.innerHTML='0<span class="cursor"></span>';
+    mnEl.classList.remove('sz2','sz3','flash');
+    btnC.textContent='AC';btnC2.textContent='AC';return;
+  }
+  if(v==='⌫'){if(JE){ES='';JE=false;}else ES=ES.slice(0,-1);upd();return;}
+  if(v==='±'){const m=ES.match(/^(.*[+\-×÷\(^]|^)(-?\d*\.?\d+)$/);if(m)ES=m[1]+String(-parseFloat(m[2]));upd();return;}
+  if(v==='%'){
+    const cur=parseFloat(evaluate(ES)||ES)||0;
+    ES=String(cur/100);JE=true;upd();return;
+  }
+  const ops=['+','−','×','÷','^'];
+  if(ops.includes(v)){
+    if(JE)JE=false;
+    ES=ES.replace(/[+\-×÷^]$/,'')+v;activeOp=v;
+    upd();return;
+  }
+  if(v==='='){
+    if(!ES)return;
+    const result=evaluate(ES);if(result===null)return;
+    const entry={eq:ES,res:fmtN(result),date:new Date().toLocaleDateString()};
+    if(result!=='Error'){hist.push(entry);localStorage.setItem('ch5',JSON.stringify(hist));}
+    const prev=ES;
+    mhEl.textContent=prev+' = '+fmtN(result);
+    ES=String(result);
+    elEl.textContent='';lrEl.textContent='';
+    mnEl.innerHTML=fmtN(result)+'<span class="cursor"></span>';
+    mnEl.classList.remove('flash');void mnEl.offsetWidth;mnEl.classList.add('flash');
+    JE=true;activeOp=null;
+    btnC.textContent='C';btnC2.textContent='C';
+    showMH();return;
+  }
+  if(v==='('){if(JE){ES='';JE=false;}ES+='(';upd();return;}
+  if(v===')'){ES+=')';upd();return;}
+  if(v==='.'){const pts=ES.split(/[+\-×÷^]/);if(pts[pts.length-1].includes('.'))return;}
+  if(JE&&/\d/.test(v)){ES='';JE=false;}
+  if(ES.length>35)return;
+  ES+=v;upd();
+}
+
+function insertOp(op){
+  if(op==='yroot'){
+    // store current as y, wait for x
+    ES+='^(1/';upd();return;
+  }
+  ES+=op;upd();
+}
+function insertConst(c){if(JE){ES='';JE=false;}ES+=c;upd();}
+
+function sciOp(op){
+  let v=parseFloat(evaluate(ES)||ES)||0,r;
+  const toR=x=>useRad?x:x*Math.PI/180;
+  const toD=x=>useRad?x:x*180/Math.PI;
+  switch(op){
+    case'pow2':r=v*v;break;case'pow3':r=v*v*v;break;
+    case'exp':r=Math.exp(v);break;case'10x':r=Math.pow(10,v);break;
+    case'inv':r=v===0?NaN:1/v;break;
+    case'sqrt2':r=v>=0?Math.sqrt(v):NaN;break;
+    case'cbrt':r=Math.cbrt(v);break;
+    case'ln':r=v>0?Math.log(v):NaN;break;
+    case'log':r=v>0?Math.log10(v):NaN;break;
+    case'fact':if(v<0||v>170||!Number.isInteger(v)){r=NaN;break;}r=1;for(let i=2;i<=v;i++)r*=i;break;
+    case'sin':r=Math.sin(toR(v));break;case'cos':r=Math.cos(toR(v));break;case'tan':r=Math.tan(toR(v));break;
+    case'asin':r=toD(Math.asin(v));break;case'acos':r=toD(Math.acos(v));break;case'atan':r=toD(Math.atan(v));break;
+    case'sinh':r=Math.sinh(v);break;case'cosh':r=Math.cosh(v);break;case'tanh':r=Math.tanh(v);break;
+    case'EE':ES+='^10^';upd();return;
+    case'rand':r=Math.random();break;
+  }
+  if(r===undefined||!isFinite(r)){ES='Error';upd();return;}
+  const rs=String(parseFloat(r.toPrecision(10)));
+  hist.push({eq:`${op}(${v})`,res:fmtN(rs),date:new Date().toLocaleDateString()});
+  localStorage.setItem('ch5',JSON.stringify(hist));
+  ES=rs;JE=true;upd();showMH();
+}
+
+function memOp(op){
+  const cur=parseFloat(evaluate(ES)||ES)||0;
+  if(op==='mc')mem=0;
+  else if(op==='m+')mem+=cur;
+  else if(op==='m-')mem-=cur;
+  else if(op==='mr'){ES=String(mem);JE=true;upd();}
+  document.querySelectorAll('.sb').forEach(b=>{if(b.textContent==='mr')b.classList.toggle('active-mem',mem!==0);});
+}
+
+function toggle2nd(){
+  is2nd=!is2nd;
+  document.getElementById('btn2nd').classList.toggle('accent',is2nd);
+  document.getElementById('hypRow').style.display=is2nd?'grid':'none';
+}
+function toggleDeg(){useRad=!useRad;document.getElementById('sbDeg').textContent=useRad?'Rad':'Deg';}
+function startHD(){hdT=setTimeout(()=>{hdI=setInterval(()=>{if(ES.length>0){ES=ES.slice(0,-1);upd();}else clearInterval(hdI);},80);},500);}
+function stopHD(){clearTimeout(hdT);clearInterval(hdI);}
+
+function ripple(el){
+  const r=document.createElement('span');r.classList.add('ripple');
+  const s=Math.max(el.offsetWidth,el.offsetHeight);
+  r.style.cssText=`width:${s}px;height:${s}px;left:${el.offsetWidth/2-s/2}px;top:${el.offsetHeight/2-s/2}px`;
+  el.appendChild(r);r.addEventListener('animationend',()=>r.remove());
+}
+
+// ══ MODE ══
+let popupOpen=false;
+function togglePopup(){popupOpen=!popupOpen;document.getElementById('popup').classList.toggle('open',popupOpen);}
+document.addEventListener('click',e=>{if(!e.target.closest('#popup')&&!e.target.closest('#modeBtn')){popupOpen=false;document.getElementById('popup').classList.remove('open');}});
+
+function setMode(m){
+  sciMode=m==='sci';
+  document.getElementById('sciWrap').classList.toggle('on',sciMode);
+  document.getElementById('basicGrid').style.display=sciMode?'none':'grid';
+  // show/hide parens in basic mode
+  document.getElementById('btn-lp').style.display=sciMode?'flex':'none';
+  document.getElementById('btn-rp').style.display=sciMode?'flex':'none';
+  document.getElementById('btn-zero').classList.toggle('b-zero',!sciMode);
+  // checkmarks
+  document.getElementById('chk-basic').style.display=sciMode?'none':'inline';
+  document.getElementById('chk-sci').style.display=sciMode?'inline':'none';
+  document.getElementById('pi-basic').classList.toggle('active',!sciMode);
+  document.getElementById('pi-sci').classList.toggle('active',sciMode);
+  togglePopup();
+}
+
+// ══ PAGES ══
+function showPage(n){
+  ['pg-calc','pg-hist','pg-conv'].forEach((id,i)=>{
+    const el=document.getElementById(id);
+    el.style.display=i===n?'flex':'none';
+  });
+  [0,1,2].forEach(i=>document.getElementById('tab'+i).classList.toggle('active',i===n));
+  if(n===1)renderHist();
+  if(n===2){document.getElementById('cgrid').style.display='grid';document.getElementById('cdet').classList.remove('on');}
+}
+
+// ══ HISTORY ══
+function showMH(){if(hist.length)mhEl.textContent=hist[hist.length-1].eq+' = '+hist[hist.length-1].res;}
+function renderHist(){
+  const s=document.getElementById('hscroll');
+  if(!hist.length){s.innerHTML='<div class="hempty">No history yet</div>';return;}
+  const byD={};[...hist].reverse().forEach(h=>{if(!byD[h.date])byD[h.date]=[];byD[h.date].push(h);});
+  s.innerHTML=Object.entries(byD).map(([d,items])=>`<div class="hdate">${d}</div>`+items.map(h=>`<div class="hentry" onclick="useH('${h.res}')"><div class="heq">${h.eq} =</div><div class="hres">${h.res}</div></div>`).join('')).join('');
+}
+function useH(v){ES=v;JE=true;showPage(0);upd();}
+function clearHist(){hist=[];localStorage.setItem('ch5','[]');renderHist();mhEl.textContent='';}
+
+// ══ CONVERTER ══
+const CDEFS={
+  currency:{n:'Currency',units:['USD','EUR','GBP','JPY','CNY','IRR','AED','TRY','CAD','AUD'],rates:{USD:1,EUR:0.92,GBP:0.79,JPY:157.5,CNY:7.24,IRR:42000,AED:3.67,TRY:32.5,CAD:1.36,AUD:1.53}},
+  length:{n:'Length',units:['Meter m','Centimeter cm','Millimeter mm','Kilometer km','Inch in','Foot ft','Yard yd','Mile mi'],keys:['m','cm','mm','km','in','ft','yd','mi'],base:{m:1,cm:1e-2,mm:1e-3,km:1e3,in:.0254,ft:.3048,yd:.9144,mi:1609.344}},
+  mass:{n:'Mass',units:['Kilogram kg','Gram g','Milligram mg','Ton t','Pound lb','Ounce oz'],keys:['kg','g','mg','t','lb','oz'],base:{kg:1,g:1e-3,mg:1e-6,t:1e3,lb:.453592,oz:.028349}},
+  area:{n:'Area',units:['Square meter m²','Square cm cm²','Square km km²','Square foot ft²','Acre acre','Hectare ha'],keys:['m²','cm²','km²','ft²','acre','ha'],base:{'m²':1,'cm²':1e-4,'km²':1e6,'ft²':.092903,'acre':4046.86,'ha':1e4}},
+  time:{n:'Time',units:['Second s','Minute min','Hour h','Day day','Week week','Month month','Year year','Millisecond ms'],keys:['s','min','h','day','week','month','year','ms'],base:{s:1,min:60,h:3600,day:86400,week:604800,month:2629800,year:31557600,ms:.001}},
+  data:{n:'Data',units:['Megabyte MB','Kilobyte KB','Gigabyte GB','Terabyte TB','Byte B'],keys:['MB','KB','GB','TB','B'],base:{MB:1048576,KB:1024,GB:1073741824,TB:1099511627776,B:1}},
+  volume:{n:'Volume',units:['Cubic meter m³','Liter L','Milliliter ml','Gallon gal','Fluid oz fl oz','Cup cup'],keys:['m³','L','ml','gal','fl oz','cup'],base:{'m³':1000,'L':1,'ml':.001,'gal':3.78541,'fl oz':.029574,'cup':.236588}},
+  speed:{n:'Speed',units:['m/s','km/h','mph','knot','ft/s'],keys:['m/s','km/h','mph','knot','ft/s'],base:{'m/s':1,'km/h':1/3.6,'mph':.44704,'knot':.514444,'ft/s':.3048}},
+  temp:{n:'Temperature',units:['Celsius °C','Fahrenheit °F','Kelvin K'],keys:['°C','°F','K']},
+  numeral:{n:'Numeral System',units:['Decimal DEC','Binary BIN','Hexadecimal HEX','Octal OCT'],keys:['DEC','BIN','HEX','OCT']},
+};
+let cType='',cInp='0',cFrom=0,cTo=1;
+let cBmiAge='',cBmiH='',cBmiW='',cBmiG='M',cBmiF=0;
+let cFinP='',cFinR='4.85',cFinY='1',cFinM='loan',cFinF=0;
+let cDateF='',cDateT='',cDiscI='',cDiscP=10;
+let sheetFor=0,hdTC=null,hdIC=null;
+
+function openConv(t){cType=t;cInp='0';cFrom=0;cTo=1;
+  document.getElementById('cgrid').style.display='none';
+  document.getElementById('cdet').classList.add('on');
+  document.getElementById('cdet-title').textContent=CDEFS[t]?.n||t;
+  renderCBody();
+}
+function closeConv(){document.getElementById('cgrid').style.display='grid';document.getElementById('cdet').classList.remove('on');}
+
+function renderCBody(){
+  const body=document.getElementById('cdet-body');body.innerHTML='';
+  if(cType==='bmi'){renderBMI(body);return;}
+  if(cType==='finance'){renderFin(body);return;}
+  if(cType==='date'){renderDate(body);return;}
+  if(cType==='discount'){renderDisc(body);return;}
+  renderStd(body);
+}
+
+function doConv(val,fi,ti,type){
+  const d=CDEFS[type];if(!d)return val;
+  if(type==='temp'){let c=parseFloat(val)||0;const fu=d.keys[fi],tu=d.keys[ti];if(fu==='°F')c=(c-32)*5/9;if(fu==='K')c=c-273.15;if(tu==='°F')return fmtN(String(c*9/5+32));if(tu==='K')return fmtN(String(c+273.15));return fmtN(String(c));}
+  if(type==='numeral'){let n=0;const fk=d.keys[fi],tk=d.keys[ti];if(fk==='DEC')n=parseInt(val)||0;else if(fk==='BIN')n=parseInt(val,2)||0;else if(fk==='HEX')n=parseInt(val,16)||0;else if(fk==='OCT')n=parseInt(val,8)||0;if(tk==='DEC')return String(n);if(tk==='BIN')return n.toString(2);if(tk==='HEX')return n.toString(16).toUpperCase();if(tk==='OCT')return n.toString(8);}
+  if(type==='currency'){const fr=d.rates[d.units[fi]],tr=d.rates[d.units[ti]];return fmtN(String(parseFloat(val)*tr/fr));}
+  if(d.base){const fk=d.keys[fi],tk=d.keys[ti];const base=parseFloat(val)*d.base[fk];return fmtN(String(base/d.base[tk]));}
+  return val;
+}
+
+function renderStd(body){
+  const d=CDEFS[cType];const res=doConv(cInp,cFrom,cTo,cType);
+  body.innerHTML=`<div class="unit-rows">
+    <div class="unit-row active-row" id="ur0">
+      <div class="uname" onclick="openSheet(0)">${d.units[cFrom]} <span class="uchevron">⌃⌄</span></div>
+      <div class="uval">${cInp}</div>
+    </div>
+    <div class="unit-row" id="ur1">
+      <div class="uname" onclick="openSheet(1)">${d.units[cTo]} <span class="uchevron">⌃⌄</span></div>
+      <div class="uval">${res}</div>
+    </div>
+  </div>
+  <div class="cnpad">
+    <button class="cb cb-f" onclick="ckC('AC')">C</button>
+    <button class="cb cb-bk" onclick="ckC('⌫')" onpointerdown="startHDC()" onpointerup="stopHDC()" onpointerleave="stopHDC()">⌫</button>
+    <button class="cb cb-n" onclick="ckC('+/-')">+/−</button>
+    <button class="cb cb-n" onclick="ckC('00')">00</button>
+    <button class="cb cb-n" onclick="ckC('7')">7</button><button class="cb cb-n" onclick="ckC('8')">8</button><button class="cb cb-n" onclick="ckC('9')">9</button>
+    <button class="cb cb-n" onclick="ckC('4')">4</button><button class="cb cb-n" onclick="ckC('5')">5</button><button class="cb cb-n" onclick="ckC('6')">6</button>
+    <button class="cb cb-n" onclick="ckC('3')">3</button>
+    <button class="cb cb-n" onclick="ckC('1')">1</button><button class="cb cb-n" onclick="ckC('2')">2</button>
+    <button class="cb cb-n cb-z2" onclick="ckC('0')">0</button>
+    <button class="cb cb-n" onclick="ckC('.')">.</button>
+  </div>`;
+}
+
+function ckC(v){
+  if(v==='AC'){cInp='0';}else if(v==='⌫'){cInp=cInp.length>1?cInp.slice(0,-1):'0';}
+  else if(v==='+/-'){cInp=String(-(parseFloat(cInp)||0));}
+  else if(v==='00'){if(cInp!=='0')cInp+='00';}
+  else if(v==='.'){if(!cInp.includes('.'))cInp+='.';}
+  else{if(cInp==='0')cInp=v;else if(cInp.length<15)cInp+=v;}
+  renderCBody();
+}
+function startHDC(){hdTC=setTimeout(()=>{hdIC=setInterval(()=>{if(cInp.length>1){cInp=cInp.slice(0,-1);renderCBody();}else{cInp='0';renderCBody();clearInterval(hdIC);}},80);},500);}
+function stopHDC(){clearTimeout(hdTC);clearInterval(hdIC);}
+
+function openSheet(ri){sheetFor=ri;const d=CDEFS[cType];if(!d?.units)return;const cur=ri===0?cFrom:cTo;document.getElementById('sheet-hdr').textContent='Select unit';document.getElementById('sheet-items').innerHTML=d.units.map((u,i)=>`<div class="sheet-item${i===cur?' sel':''}" onclick="selUnit(${i})">${u}${i===cur?' ✓':''}</div>`).join('');document.getElementById('usheet').classList.add('on');}
+function closeSheet(){document.getElementById('usheet').classList.remove('on');}
+function selUnit(i){if(sheetFor===0)cFrom=i;else cTo=i;closeSheet();renderCBody();}
+
+function renderBMI(body){
+  const hasBmi=cBmiH&&cBmiW;let bmiHtml='';
+  if(hasBmi){const h=parseFloat(cBmiH)/100,w=parseFloat(cBmiW),bmi=w/(h*h);const cat=bmi<18.5?'Underweight':bmi<25?'Normal weight ✓':bmi<30?'Overweight':'Obese';bmiHtml=`<div class="res-card"><div class="res-lbl">BMI</div><div class="res-val">${bmi.toFixed(1)}</div><div class="res-cat">${cat}</div></div>`;}
+  body.innerHTML=`<div class="form-body">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+      <div class="f-field" style="flex:1">
+        <div class="f-label">Age</div>
+        <div class="f-val${cBmiF===0?' active':''}" onclick="cBmiF=0;renderCBody()">${cBmiAge||'—'}</div>
+      </div>
+      <div>
+        <div class="f-label" style="text-align:right">Gender</div>
+        <div class="gender-row" style="margin-top:6px">
+          <button class="gBtn${cBmiG==='M'?' on':''}" onclick="cBmiG='M';renderCBody()">👨</button>
+          <button class="gBtn${cBmiG==='F'?' on':''}" onclick="cBmiG='F';renderCBody()">👩</button>
+        </div>
+      </div>
+    </div>
+    <div class="f-field"><div class="f-label">Height (cm)</div><div class="f-val${cBmiF===1?' active':''}" onclick="cBmiF=1;renderCBody()">${cBmiH||'—'}</div></div>
+    <div class="f-field"><div class="f-label">Weight (kg)</div><div class="f-val${cBmiF===2?' active':''}" onclick="cBmiF=2;renderCBody()">${cBmiW||'—'}</div></div>
+    ${bmiHtml}
+    <button class="calc-cta" onclick="renderCBody()">Calculate</button>
+  </div>
+  <div class="cnpad" style="grid-template-columns:repeat(3,1fr)">
+    <button class="cb cb-f" onclick="ckBMI('C')">C</button><button class="cb cb-bk" onclick="ckBMI('⌫')">⌫</button><button class="cb cb-n" onclick="cBmiF=(cBmiF+1)%3;renderCBody()" style="font-size:14px">Next →</button>
+    <button class="cb cb-n" onclick="ckBMI('7')">7</button><button class="cb cb-n" onclick="ckBMI('8')">8</button><button class="cb cb-n" onclick="ckBMI('9')">9</button>
+    <button class="cb cb-n" onclick="ckBMI('4')">4</button><button class="cb cb-n" onclick="ckBMI('5')">5</button><button class="cb cb-n" onclick="ckBMI('6')">6</button>
+    <button class="cb cb-n" onclick="ckBMI('1')">1</button><button class="cb cb-n" onclick="ckBMI('2')">2</button><button class="cb cb-n" onclick="ckBMI('3')">3</button>
+    <button class="cb cb-n" style="grid-column:span 2" onclick="ckBMI('0')">0</button><button class="cb cb-n" onclick="ckBMI('.')">.</button>
+  </div>`;
+}
+function ckBMI(v){const fs=['cBmiAge','cBmiH','cBmiW'];const f=fs[cBmiF];if(v==='C'){window[f]='';}else if(v==='⌫'){window[f]=window[f].slice(0,-1);}else if(v==='.'){if(!(window[f]||'').includes('.'))window[f]=(window[f]||'')+v;}else{window[f]=(window[f]||'')+v;}renderCBody();}
+
+function renderFin(body){
+  let resHtml='';
+  if(cFinP){const p=parseFloat(cFinP)||0,r=parseFloat(cFinR)/100,y=parseFloat(cFinY)||1;if(cFinM==='loan'){const mo=r/12,n=y*12;const pmt=mo===0?p/n:p*(mo*Math.pow(1+mo,n))/(Math.pow(1+mo,n)-1);resHtml=`<div class="res-card"><div class="res-lbl">Monthly Payment</div><div class="res-val">${pmt.toFixed(2)}</div><div class="res-cat">Total ${(pmt*n).toFixed(2)} · Interest ${(pmt*n-p).toFixed(2)}</div></div>`;}else{const fv=p*Math.pow(1+r,y);resHtml=`<div class="res-card"><div class="res-lbl">Future Value</div><div class="res-val">${fv.toFixed(2)}</div><div class="res-cat">Profit ${(fv-p).toFixed(2)}</div></div>`;}}
+  body.innerHTML=`<div class="form-body">
+    <div class="f-field"><div class="f-label">Principal</div><div class="f-val${cFinF===0?' active':''}" onclick="cFinF=0;renderCBody()">${cFinP||'Enter amount'}</div></div>
+    <div class="f-toggle-row"><button class="f-toggle${cFinM==='loan'?' on':''}" onclick="cFinM='loan';renderCBody()">Loan</button><button class="f-toggle${cFinM==='invest'?' on':''}" onclick="cFinM='invest';renderCBody()">Investment</button></div>
+    <div class="f-field"><div class="f-label">Interest rate (%)</div><div class="f-val${cFinF===1?' active':''}" onclick="cFinF=1;renderCBody()">${cFinR}</div></div>
+    <div class="f-field"><div class="f-label">Duration (years)</div><div class="f-val${cFinF===2?' active':''}" onclick="cFinF=2;renderCBody()">${cFinY}</div></div>
+    ${resHtml}<button class="calc-cta" onclick="renderCBody()">Calculate</button>
+  </div>
+  <div class="cnpad" style="grid-template-columns:repeat(3,1fr)">
+    <button class="cb cb-f" onclick="ckFin('C')">C</button><button class="cb cb-bk" onclick="ckFin('⌫')">⌫</button><button class="cb cb-n" onclick="cFinF=(cFinF+1)%3;renderCBody()" style="font-size:14px">Next →</button>
+    <button class="cb cb-n" onclick="ckFin('7')">7</button><button class="cb cb-n" onclick="ckFin('8')">8</button><button class="cb cb-n" onclick="ckFin('9')">9</button>
+    <button class="cb cb-n" onclick="ckFin('4')">4</button><button class="cb cb-n" onclick="ckFin('5')">5</button><button class="cb cb-n" onclick="ckFin('6')">6</button>
+    <button class="cb cb-n" onclick="ckFin('1')">1</button><button class="cb cb-n" onclick="ckFin('2')">2</button><button class="cb cb-n" onclick="ckFin('3')">3</button>
+    <button class="cb cb-n" style="grid-column:span 2" onclick="ckFin('0')">0</button><button class="cb cb-n" onclick="ckFin('.')">.</button>
+  </div>`;
+}
+function ckFin(v){const fs=['cFinP','cFinR','cFinY'];const f=fs[cFinF];if(v==='C'){window[f]=f==='cFinR'?'4.85':f==='cFinY'?'1':'';}else if(v==='⌫'){window[f]=(window[f]||'').slice(0,-1)||'0';}else if(v==='.'){if(!(window[f]||'').includes('.'))window[f]=(window[f]||'')+v;}else{if(window[f]==='0')window[f]=v;else window[f]=(window[f]||'')+v;}renderCBody();}
+
+function renderDate(body){
+  const today=new Date().toISOString().split('T')[0];
+  if(!cDateF)cDateF=today;if(!cDateT)cDateT=today;
+  const d1=new Date(cDateF),d2=new Date(cDateT),diff=Math.abs(d2-d1);
+  const days=Math.floor(diff/86400000),years=Math.floor(days/365.25),remM=Math.floor((days-years*365.25)/30.44),remD=Math.max(0,Math.floor(days-years*365.25-remM*30.44));
+  const fmt=d=>new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+  body.innerHTML=`<div class="form-body">
+    <div class="date-row"><div class="date-lbl">From</div><input type="date" class="date-input" value="${cDateF}" onchange="cDateF=this.value;renderCBody()"> ›</div>
+    <div class="date-row"><div class="date-lbl">To</div><input type="date" class="date-input" value="${cDateT}" onchange="cDateT=this.value;renderCBody()"> ›</div>
+    <div class="diff-card">
+      <div class="diff-ttl">Difference</div>
+      <div class="diff-nums">
+        <div class="diff-n"><div class="diff-nv">${years}</div><div class="diff-nl">Years</div></div>
+        <div class="diff-n"><div class="diff-nv">${remM}</div><div class="diff-nl">Months</div></div>
+        <div class="diff-n"><div class="diff-nv">${remD}</div><div class="diff-nl">Days</div></div>
+      </div>
+      <div class="diff-dates">
+        <div class="diff-dt"><div class="diff-dt-t">From</div><div class="diff-dt-v">${fmt(cDateF)}</div></div>
+        <div class="diff-dt"><div class="diff-dt-t">To</div><div class="diff-dt-v">${fmt(cDateT)}</div></div>
+      </div>
+    </div>
+    <div style="text-align:center;color:var(--text-sub);font-size:14px;margin-top:10px">Total: ${days} days</div>
+  </div>`;
+}
+
+function renderDisc(body){
+  const p=parseFloat(cDiscI)||0,d=p*cDiscP/100,final=p-d;
+  body.innerHTML=`<div class="unit-rows">
+    <div class="unit-row active-row"><div class="uname">Original Price</div><div class="uval">${cDiscI||'0'}</div></div>
+    <div class="unit-row"><div class="uname" style="color:#ff6b35">Discount (${cDiscP}%)</div><div class="uval" style="color:#ff6b35">−${d.toFixed(2)}</div></div>
+    <div class="unit-row"><div class="uname" style="color:var(--acc)">Final Price</div><div class="uval" style="color:var(--acc)">${final.toFixed(2)}</div></div>
+    <div class="disc-pct-row">${[5,10,15,20,25,30,50].map(p=>`<button class="disc-chip${cDiscP===p?' on':''}" onclick="cDiscP=${p};renderCBody()">${p}%</button>`).join('')}</div>
+  </div>
+  <div class="cnpad">
+    <button class="cb cb-f" onclick="cDiscI='';renderCBody()">C</button>
+    <button class="cb cb-bk" onclick="cDiscI=cDiscI.slice(0,-1)||'';renderCBody()">⌫</button>
+    <button class="cb cb-n" onclick="if(!cDiscI.includes('.'))cDiscI+='.';renderCBody()">.</button>
+    <button class="cb cb-n" onclick="cDiscI+=cDiscI?'00':'';renderCBody()">00</button>
+    <button class="cb cb-n" onclick="cDiscI=cDiscI==='0'?'7':cDiscI+'7';renderCBody()">7</button>
+    <button class="cb cb-n" onclick="cDiscI=cDiscI==='0'?'8':cDiscI+'8';renderCBody()">8</button>
+    <button class="cb cb-n" onclick="cDiscI=cDiscI==='0'?'9':cDiscI+'9';renderCBody()">9</button>
+    <button class="cb cb-n" onclick="cDiscI=cDiscI==='0'?'4':cDiscI+'4';renderCBody()">4</button>
+    <button class="cb cb-n" onclick="cDiscI=cDiscI==='0'?'5':cDiscI+'5';renderCBody()">5</button>
+    <button class="cb cb-n" onclick="cDiscI=cDiscI==='0'?'6':cDiscI+'6';renderCBody()">6</button>
+    <button class="cb cb-n" onclick="cDiscI=cDiscI==='0'?'1':cDiscI+'1';renderCBody()">1</button>
+    <button class="cb cb-n" onclick="cDiscI=cDiscI==='0'?'2':cDiscI+'2';renderCBody()">2</button>
+    <button class="cb cb-n" onclick="cDiscI=cDiscI==='0'?'3':cDiscI+'3';renderCBody()">3</button>
+    <button class="cb cb-n cb-z2" onclick="cDiscI=cDiscI||'0'+'0';renderCBody()">0</button>
+  </div>`;
+}
+
+// ══ KEYBOARD ══
+document.addEventListener('keydown',e=>{
+  const m={'0':'0','1':'1','2':'2','3':'3','4':'4','5':'5','6':'6','7':'7','8':'8','9':'9','.':'.','Enter':'=','=':'=','Backspace':'⌫','Escape':'C','+':'+','-':'−','*':'×','/':'÷','(':' (',')':")"};
+  const v=m[e.key];if(v){e.preventDefault();pb(v);}
+});
+
+// ══ PWA ══
+let dp;
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();dp=e;setTimeout(()=>document.getElementById('ib').classList.add('on'),3000);});
+document.getElementById('inst').onclick=async()=>{if(dp){dp.prompt();const{outcome}=await dp.userChoice;if(outcome==='accepted')dimiss();dp=null;}};
+function dimiss(){document.getElementById('ib').classList.remove('on');}
+if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+
+upd();showMH();
+</script>
+</body>
+</html>
